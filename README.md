@@ -8,7 +8,8 @@ The application is currently **under active development**, with additional monit
 
 - **System Dashboard** — View an overview of your computer's hardware and system performance.
 - **CPU Monitoring** — Monitor processor utilization and view CPU information.
-- **RAM Monitoring** — Display memory utilization and installed RAM information.
+- **RAM Monitoring** — Display memory utilization, total installed RAM, used RAM, and available RAM.
+- **Memory Monitor** — Dedicated page displaying RAM statistics, utilization percentage, and a visual progress bar.
 - **Storage Monitoring** — Monitor total storage capacity and disk utilization.
 - **Processor Information** — View processor model, manufacturer, physical cores, logical processors, architecture, and other specifications.
 - **CPU Frequency Information** — Display maximum and current average processor frequency when supported.
@@ -45,7 +46,8 @@ SysInfoPro/
 │       │           │
 │       │           ├── hardware/
 │       │           │   ├── SystemMonitor.java
-│       │           │   └── ProcessorInfo.java
+│       │           │   ├── ProcessorInfo.java
+│       │           │   └── MemoryInfo.java
 │       │           │
 │       │           ├── database/
 │       │           │
@@ -83,10 +85,14 @@ SysInfoPro/
 - Operating system information.
 - System uptime display.
 - Dedicated Processor page.
+- Dedicated Memory Monitor page.
+- Total, used, and available RAM information.
+- RAM utilization percentage calculation.
+- Visual memory usage progress bar.
+- Automatic memory statistics refresh.
 
 ### In Development
 
-- Dedicated Memory Monitor.
 - Detailed Storage Monitor.
 - Operating System information page.
 - Additional Hardware Information page.
