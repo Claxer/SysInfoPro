@@ -2,136 +2,138 @@ package com.sysinfopro;
 
 import com.sysinfopro.hardware.SystemMonitor;
 import com.sysinfopro.hardware.ProcessorInfo;
+import com.sysinfopro.hardware.MemoryInfo;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.lang.reflect.Method;
 
-public class Main {
+public class Main extends JFrame {
 
-    private JFrame frame;
-    private JPanel contentPanel;
-    private JPanel sidebar;
+    private final Color BACKGROUND = new Color(18, 18, 20);
+    private final Color SIDEBAR = new Color(24, 24, 27);
+    private final Color CARD = new Color(32, 32, 36);
+    private final Color TEXT = new Color(240, 240, 240);
+    private final Color MUTED = new Color(155, 155, 165);
+    private final Color ACCENT = new Color(90, 145, 255);
 
-    private SystemMonitor monitor;
-    private ProcessorInfo processorInfo;
-    private Timer refreshTimer;
+    private final SystemMonitor monitor;
+    private final ProcessorInfo processorInfo;
+    private final MemoryInfo memoryInfo;
+
+    private final CardLayout cardLayout = new CardLayout();
+    private final JPanel contentPanel = new JPanel(cardLayout);
 
     private JLabel cpuValue;
     private JLabel ramValue;
     private JLabel storageValue;
 
-    private JLabel cpuModel;
-    private JLabel ramDetails;
-    private JLabel storageDetails;
-    private JLabel osDetails;
-    private JLabel uptimeDetails;
+    private JProgressBar cpuProgress;
+    private JProgressBar ramProgress;
+    private JProgressBar storageProgress;
 
-    private JProgressBar cpuBar;
-    private JProgressBar ramBar;
-    private JProgressBar storageBar;
+    private JLabel overviewCPU;
+    private JLabel overviewRAM;
+    private JLabel overviewStorage;
+    private JLabel overviewOS;
+    private JLabel overviewUptime;
 
-    private final Color BACKGROUND = new Color(18, 18, 18);
-    private final Color SIDEBAR = new Color(23, 23, 23);
-    private final Color PANEL = new Color(30, 30, 30);
-    private final Color BORDER = new Color(48, 48, 48);
-    private final Color WHITE = new Color(240, 240, 240);
-    private final Color GRAY = new Color(155, 155, 155);
-    private final Color ACCENT = new Color(110, 160, 255);
+    private JLabel memoryTotal;
+    private JLabel memoryUsed;
+    private JLabel memoryAvailable;
+    private JLabel memoryPercentage;
+    private JProgressBar memoryProgress;
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new Main().initialize());
+    private JTextArea processorDetails;
+
+    private Timer refreshTimer;
+
+    public Main() {
+        monitor = new SystemMonitor();
+        processorInfo = new ProcessorInfo();
+        memoryInfo = new MemoryInfo();
+
+        initialize();
     }
 
     private void initialize() {
-
-        monitor = new SystemMonitor();
-        processorInfo = new ProcessorInfo();
-
-        frame = new JFrame("SysInfo Pro");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1250, 780);
-        frame.setMinimumSize(new Dimension(1050, 650));
-        frame.setLocationRelativeTo(null);
-        frame.getContentPane().setBackground(BACKGROUND);
-        frame.setLayout(new BorderLayout());
+        setTitle("SysInfo Pro - System Information Manager");
+        setSize(1200, 750);
+        setMinimumSize(new Dimension(1000, 650));
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout());
+        getContentPane().setBackground(BACKGROUND);
 
         createSidebar();
         createContentPanel();
 
-        frame.add(sidebar, BorderLayout.WEST);
-        frame.add(contentPanel, BorderLayout.CENTER);
+        refreshDashboard();
+        refreshMemoryPage();
+        refreshProcessorPage();
 
-        showDashboard();
+        refreshTimer = new Timer(2000, e -> {
+            refreshDashboard();
+            refreshMemoryPage();
+            refreshProcessorPage();
+        });
 
-        frame.setVisible(true);
-
-        refreshTimer = new Timer(2000, e -> refreshDashboard());
         refreshTimer.start();
 
-        frame.addWindowListener(new java.awt.event.WindowAdapter() {
-            @Override
-            public void windowClosing(java.awt.event.WindowEvent e) {
-                refreshTimer.stop();
-            }
-        });
+        setVisible(true);
     }
 
-    // ==============================
     // SIDEBAR
-    // ==============================
 
     private void createSidebar() {
-
-        sidebar = new JPanel();
+        JPanel sidebar = new JPanel();
         sidebar.setPreferredSize(new Dimension(230, 0));
         sidebar.setBackground(SIDEBAR);
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
         sidebar.setBorder(new EmptyBorder(25, 15, 20, 15));
 
-        JLabel logo = new JLabel("SYSINFO PRO");
-        logo.setFont(new Font("SansSerif", Font.BOLD, 20));
-        logo.setForeground(WHITE);
-        logo.setBorder(new EmptyBorder(5, 10, 5, 5));
-
-        JLabel subtitle = new JLabel("SYSTEM MONITOR");
-        subtitle.setFont(new Font("SansSerif", Font.PLAIN, 10));
-        subtitle.setForeground(GRAY);
-        subtitle.setBorder(new EmptyBorder(5, 10, 30, 5));
+        JLabel logo = new JLabel("SysInfo Pro");
+        logo.setFont(new Font("Segoe UI", Font.BOLD, 23));
+        logo.setForeground(TEXT);
+        logo.setBorder(new EmptyBorder(0, 10, 35, 0));
 
         sidebar.add(logo);
-        sidebar.add(subtitle);
 
-        addNavigationButton("Dashboard", "dashboard");
-        addNavigationButton("Processor", "processor");
-        addNavigationButton("Memory", "memory");
-        addNavigationButton("Storage", "storage");
-        addNavigationButton("Operating System", "os");
-        addNavigationButton("Hardware", "hardware");
+        addNavigationButton(sidebar, "Dashboard", "dashboard");
+        addNavigationButton(sidebar, "Processor", "processor");
+        addNavigationButton(sidebar, "Memory", "memory");
+        addNavigationButton(sidebar, "Storage", "storage");
+        addNavigationButton(sidebar, "Operating System", "os");
+        addNavigationButton(sidebar, "Hardware", "hardware");
+        addNavigationButton(sidebar, "Reports", "reports");
 
         sidebar.add(Box.createVerticalGlue());
 
-        addNavigationButton("Reports", "reports");
+        JLabel version = new JLabel("Version 1.0.0");
+        version.setForeground(MUTED);
+        version.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        version.setBorder(new EmptyBorder(10, 10, 5, 0));
 
-        JLabel footer = new JLabel("SysInfo Pro v1.0.0");
-        footer.setForeground(GRAY);
-        footer.setFont(new Font("SansSerif", Font.PLAIN, 11));
-        footer.setBorder(new EmptyBorder(20, 10, 5, 5));
+        sidebar.add(version);
 
-        sidebar.add(footer);
+        add(sidebar, BorderLayout.WEST);
     }
 
-    private void addNavigationButton(String text, String page) {
+    private void addNavigationButton(
+            JPanel sidebar, String name, String page) {
 
-        JButton button = new JButton(text);
+        JButton button = new JButton(name);
 
-        button.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        button.setForeground(GRAY);
+        button.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        button.setForeground(TEXT);
         button.setBackground(SIDEBAR);
         button.setHorizontalAlignment(SwingConstants.LEFT);
         button.setFocusPainted(false);
-        button.setBorder(new EmptyBorder(13, 12, 13, 12));
-        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45));
+        button.setBorderPainted(false);
+        button.setMaximumSize(new Dimension(200, 45));
+        button.setPreferredSize(new Dimension(200, 45));
+        button.setBorder(new EmptyBorder(0, 15, 0, 0));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         button.addActionListener(e -> navigate(page));
@@ -140,445 +142,433 @@ public class Main {
         sidebar.add(Box.createVerticalStrut(5));
     }
 
-    // ==============================
     // CONTENT PANEL
-    // ==============================
 
     private void createContentPanel() {
-
-        contentPanel = new JPanel(new BorderLayout());
         contentPanel.setBackground(BACKGROUND);
-        contentPanel.setBorder(new EmptyBorder(30, 35, 30, 35));
-    }
 
-    // ==============================
-    // NAVIGATION
-    // ==============================
+        contentPanel.add(showDashboard(), "dashboard");
+        contentPanel.add(showProcessorPage(), "processor");
+        contentPanel.add(showMemoryPage(), "memory");
+
+        contentPanel.add(
+                showPlaceholder("Storage Monitor",
+                        "Storage monitoring will be available here."),
+                "storage");
+
+        contentPanel.add(
+                showPlaceholder("Operating System",
+                        "Operating system information will be available here."),
+                "os");
+
+        contentPanel.add(
+                showPlaceholder("Hardware Information",
+                        "Additional hardware information will be available here."),
+                "hardware");
+
+        contentPanel.add(
+                showPlaceholder("Reports",
+                        "System reports and export options will be available here."),
+                "reports");
+
+        add(contentPanel, BorderLayout.CENTER);
+    }
 
     private void navigate(String page) {
-
-        switch (page) {
-
-            case "dashboard" -> showDashboard();
-
-            case "processor" -> showProcessorPage();
-
-            case "memory" -> showPlaceholder(
-                    "Memory",
-                    "RAM usage and memory statistics."
-            );
-
-            case "storage" -> showPlaceholder(
-                    "Storage",
-                    "Disk drives and storage capacity."
-            );
-
-            case "os" -> showPlaceholder(
-                    "Operating System",
-                    "Operating system information and uptime."
-            );
-
-            case "hardware" -> showPlaceholder(
-                    "Hardware",
-                    "Detailed computer hardware specifications."
-            );
-
-            case "reports" -> showPlaceholder(
-                    "Reports",
-                    "Generate and manage system reports."
-            );
-        }
+        cardLayout.show(contentPanel, page);
     }
 
-    // ==============================
     // DASHBOARD
-    // ==============================
 
-    private void showDashboard() {
+    private JPanel showDashboard() {
+        JPanel panel = createPanel();
+        panel.setLayout(new BorderLayout(20, 20));
 
-        contentPanel.removeAll();
+        JPanel header = new JPanel();
+        header.setBackground(BACKGROUND);
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
 
-        JPanel dashboard = new JPanel();
-        dashboard.setBackground(BACKGROUND);
-        dashboard.setLayout(new BoxLayout(dashboard, BoxLayout.Y_AXIS));
+        JLabel title = new JLabel("Dashboard");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        title.setForeground(TEXT);
 
-        JLabel title = new JLabel("System Dashboard");
-        title.setFont(new Font("SansSerif", Font.BOLD, 27));
-        title.setForeground(WHITE);
+        JLabel subtitle = new JLabel(
+                "Monitor your system performance in real time.");
 
-        JLabel description = new JLabel(
-                "Monitor your computer's performance and hardware."
-        );
-        description.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        description.setForeground(GRAY);
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setForeground(MUTED);
 
-        dashboard.add(title);
-        dashboard.add(Box.createVerticalStrut(8));
-        dashboard.add(description);
-        dashboard.add(Box.createVerticalStrut(30));
+        header.add(title);
+        header.add(Box.createVerticalStrut(5));
+        header.add(subtitle);
 
-        JPanel stats = new JPanel(new GridLayout(1, 3, 15, 15));
-        stats.setBackground(BACKGROUND);
-        stats.setMaximumSize(new Dimension(Integer.MAX_VALUE, 165));
+        panel.add(header, BorderLayout.NORTH);
 
-        stats.add(createResourceCard("PROCESSOR", "CPU Usage", 0));
-        stats.add(createResourceCard("MEMORY", "RAM Usage", 1));
-        stats.add(createResourceCard("STORAGE", "Disk Usage", 2));
+        JPanel cards = new JPanel(new GridLayout(1, 3, 15, 15));
+        cards.setBackground(BACKGROUND);
 
-        dashboard.add(stats);
-        dashboard.add(Box.createVerticalStrut(25));
+        JPanel cpuCard = createResourceCard("CPU Usage");
+        JPanel ramCard = createResourceCard("RAM Usage");
+        JPanel storageCard = createResourceCard("Storage Usage");
+
+        cpuValue = (JLabel) cpuCard.getClientProperty("value");
+        cpuProgress = (JProgressBar) cpuCard.getClientProperty("progress");
+
+        ramValue = (JLabel) ramCard.getClientProperty("value");
+        ramProgress = (JProgressBar) ramCard.getClientProperty("progress");
+
+        storageValue = (JLabel) storageCard.getClientProperty("value");
+        storageProgress = (JProgressBar) storageCard.getClientProperty("progress");
+
+        cards.add(cpuCard);
+        cards.add(ramCard);
+        cards.add(storageCard);
 
         JPanel overview = createPanel();
-        overview.setLayout(new BorderLayout());
-        overview.setBorder(new EmptyBorder(22, 22, 22, 22));
+        overview.setLayout(new GridLayout(5, 2, 10, 12));
 
         JLabel overviewTitle = new JLabel("System Overview");
-        overviewTitle.setForeground(WHITE);
-        overviewTitle.setFont(new Font("SansSerif", Font.BOLD, 18));
+        overviewTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        overviewTitle.setForeground(TEXT);
 
-        JPanel details = new JPanel(new GridLayout(0, 2, 20, 22));
-        details.setBackground(PANEL);
-        details.setBorder(new EmptyBorder(20, 0, 0, 0));
+        JPanel center = new JPanel(new BorderLayout(0, 15));
+        center.setBackground(BACKGROUND);
+        center.add(cards, BorderLayout.NORTH);
 
-        cpuModel = createDetailLabel();
-        ramDetails = createDetailLabel();
-        storageDetails = createDetailLabel();
-        osDetails = createDetailLabel();
-        uptimeDetails = createDetailLabel();
+        JPanel details = new JPanel(new BorderLayout());
+        details.setBackground(BACKGROUND);
+        details.add(overviewTitle, BorderLayout.NORTH);
 
-        details.add(createDetailItem("PROCESSOR MODEL", cpuModel));
-        details.add(createDetailItem("INSTALLED MEMORY", ramDetails));
-        details.add(createDetailItem("TOTAL STORAGE", storageDetails));
-        details.add(createDetailItem("OPERATING SYSTEM", osDetails));
-        details.add(createDetailItem("SYSTEM UPTIME", uptimeDetails));
+        JPanel detailGrid = new JPanel(new GridLayout(5, 2, 10, 12));
+        detailGrid.setBackground(CARD);
+        detailGrid.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        overview.add(overviewTitle, BorderLayout.NORTH);
-        overview.add(details, BorderLayout.CENTER);
+        overviewCPU = createDetailLabel();
+        overviewRAM = createDetailLabel();
+        overviewStorage = createDetailLabel();
+        overviewOS = createDetailLabel();
+        overviewUptime = createDetailLabel();
 
-        dashboard.add(overview);
+        addDetailRow(detailGrid, "Processor", overviewCPU);
+        addDetailRow(detailGrid, "Installed Memory", overviewRAM);
+        addDetailRow(detailGrid, "Total Storage", overviewStorage);
+        addDetailRow(detailGrid, "Operating System", overviewOS);
+        addDetailRow(detailGrid, "System Uptime", overviewUptime);
 
-        contentPanel.add(dashboard, BorderLayout.CENTER);
+        details.add(detailGrid, BorderLayout.CENTER);
 
-        contentPanel.revalidate();
-        contentPanel.repaint();
+        center.add(details, BorderLayout.CENTER);
 
-        refreshDashboard();
+        panel.add(center, BorderLayout.CENTER);
+
+        return panel;
     }
 
-    // ==============================
-    // RESOURCE CARDS
-    // ==============================
-
-    private JPanel createResourceCard(
-            String title,
-            String description,
-            int type
-    ) {
-
-        JPanel card = createPanel();
-
+    private JPanel createResourceCard(String name) {
+        JPanel card = new JPanel();
+        card.setBackground(CARD);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        JLabel heading = new JLabel(title);
-        heading.setFont(new Font("SansSerif", Font.BOLD, 11));
-        heading.setForeground(GRAY);
+        JLabel title = new JLabel(name);
+        title.setForeground(MUTED);
+        title.setFont(new Font("Segoe UI", Font.PLAIN, 14));
 
         JLabel value = new JLabel("0%");
-        value.setFont(new Font("SansSerif", Font.BOLD, 27));
-        value.setForeground(WHITE);
-
-        JLabel subtitle = new JLabel(description);
-        subtitle.setFont(new Font("SansSerif", Font.PLAIN, 11));
-        subtitle.setForeground(GRAY);
+        value.setForeground(TEXT);
+        value.setFont(new Font("Segoe UI", Font.BOLD, 30));
 
         JProgressBar progress = new JProgressBar(0, 100);
         progress.setValue(0);
         progress.setStringPainted(false);
         progress.setForeground(ACCENT);
-        progress.setBackground(new Color(48, 48, 48));
+        progress.setBackground(new Color(55, 55, 60));
         progress.setBorderPainted(false);
-        progress.setPreferredSize(new Dimension(200, 7));
-        progress.setMaximumSize(new Dimension(Integer.MAX_VALUE, 7));
+        progress.setPreferredSize(new Dimension(200, 8));
+        progress.setMaximumSize(new Dimension(Integer.MAX_VALUE, 8));
 
-        if (type == 0) {
-            cpuValue = value;
-            cpuBar = progress;
-        } else if (type == 1) {
-            ramValue = value;
-            ramBar = progress;
-        } else {
-            storageValue = value;
-            storageBar = progress;
-        }
-
-        card.add(heading);
-        card.add(Box.createVerticalStrut(12));
+        card.add(title);
+        card.add(Box.createVerticalStrut(20));
         card.add(value);
-        card.add(Box.createVerticalStrut(8));
-        card.add(subtitle);
-        card.add(Box.createVerticalStrut(15));
+        card.add(Box.createVerticalStrut(20));
         card.add(progress);
+
+        card.putClientProperty("value", value);
+        card.putClientProperty("progress", progress);
 
         return card;
     }
 
-    // ==============================
-    // SYSTEM DETAILS
-    // ==============================
+    private void addDetailRow(
+            JPanel panel, String name, JLabel value) {
 
-    private JPanel createDetailItem(String title, JLabel value) {
+        JLabel label = new JLabel(name);
+        label.setForeground(MUTED);
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 
-        JPanel item = new JPanel();
-        item.setBackground(PANEL);
-        item.setLayout(new BoxLayout(item, BoxLayout.Y_AXIS));
-
-        JLabel heading = new JLabel(title);
-        heading.setFont(new Font("SansSerif", Font.BOLD, 10));
-        heading.setForeground(GRAY);
-
-        value.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        value.setForeground(WHITE);
-
-        item.add(heading);
-        item.add(Box.createVerticalStrut(7));
-        item.add(value);
-
-        return item;
+        panel.add(label);
+        panel.add(value);
     }
 
     private JLabel createDetailLabel() {
-        return new JLabel("Loading...");
+        JLabel label = new JLabel("Loading...");
+        label.setForeground(TEXT);
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        return label;
     }
 
-    // ==============================
-    // REFRESH HARDWARE DATA
-    // ==============================
+    // DASHBOARD REFRESH
 
     private void refreshDashboard() {
+        double cpu = getNumber(monitor, "getCPUUsage");
+        double ram = memoryInfo.getRAMUsage();
+        double storage = getNumber(monitor, "getStorageUsage");
 
-        if (cpuValue == null || ramValue == null || storageValue == null) {
-            return;
-        }
+        updateResource(cpuValue, cpuProgress, cpu);
+        updateResource(ramValue, ramProgress, ram);
+        updateResource(storageValue, storageProgress, storage);
 
-        try {
+        overviewCPU.setText(getText(
+                monitor, "getCPUName", "getProcessorName"));
 
-            double cpu = monitor.getCPUUsage();
-            double ram = monitor.getRAMUsage();
-            double storage = monitor.getStorageUsage();
+        overviewRAM.setText(
+                memoryInfo.formatGB(memoryInfo.getTotalRAM()));
 
-            updateResource(cpuValue, cpuBar, cpu);
-            updateResource(ramValue, ramBar, ram);
-            updateResource(storageValue, storageBar, storage);
+        overviewStorage.setText(getText(
+                monitor, "getTotalStorage", "getStorageSummary"));
 
-            cpuModel.setText(monitor.getCPUName());
+        overviewOS.setText(getText(
+                monitor, "getOperatingSystem", "getOSName"));
 
-            ramDetails.setText(
-                    monitor.formatGB(monitor.getTotalRAM())
-            );
-
-            storageDetails.setText(
-                    monitor.formatGB(monitor.getTotalStorage())
-            );
-
-            osDetails.setText(monitor.getOSName());
-
-            uptimeDetails.setText(monitor.getSystemUptime());
-
-        } catch (Exception ex) {
-
-            System.err.println(
-                    "Unable to refresh system information: " + ex.getMessage()
-            );
-        }
+        overviewUptime.setText(getText(
+                monitor, "getUptime", "getSystemUptime"));
     }
 
     private void updateResource(
-            JLabel label,
-            JProgressBar bar,
-            double usage
-    ) {
+            JLabel label, JProgressBar progress, double value) {
 
-        int percentage = (int) Math.round(usage);
-
+        int percentage = (int) Math.round(value);
         percentage = Math.max(0, Math.min(100, percentage));
 
-        label.setText(percentage + "%");
-        bar.setValue(percentage);
+        label.setText(String.format("%.1f%%", value));
+        progress.setValue(percentage);
     }
 
-    // ==============================
-    // PROCESSOR PAGE
-    // ==============================
+    // MEMORY PAGE
 
-    private void showProcessorPage() {
+    private JPanel showMemoryPage() {
+        JPanel panel = createPanel();
+        panel.setLayout(new BorderLayout(20, 20));
 
-        contentPanel.removeAll();
+        JPanel header = new JPanel();
+        header.setBackground(BACKGROUND);
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
 
-        JPanel page = new JPanel();
-        page.setBackground(BACKGROUND);
-        page.setLayout(new BoxLayout(page, BoxLayout.Y_AXIS));
+        JLabel title = new JLabel("Memory Monitor");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        title.setForeground(TEXT);
 
-        JLabel title = new JLabel("Processor");
-        title.setFont(new Font("SansSerif", Font.BOLD, 27));
-        title.setForeground(WHITE);
+        JLabel subtitle = new JLabel(
+                "View your system's RAM usage and memory availability.");
 
-        JLabel description = new JLabel(
-                "Detailed processor specifications and hardware information."
-        );
-        description.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        description.setForeground(GRAY);
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setForeground(MUTED);
 
-        page.add(title);
-        page.add(Box.createVerticalStrut(8));
-        page.add(description);
-        page.add(Box.createVerticalStrut(25));
+        header.add(title);
+        header.add(Box.createVerticalStrut(5));
+        header.add(subtitle);
 
-        JPanel overview = createPanel();
-        overview.setLayout(new BoxLayout(overview, BoxLayout.Y_AXIS));
-        overview.setBorder(new EmptyBorder(22, 22, 22, 22));
+        panel.add(header, BorderLayout.NORTH);
 
-        JLabel overviewTitle = new JLabel("Processor Overview");
-        overviewTitle.setFont(new Font("SansSerif", Font.BOLD, 18));
-        overviewTitle.setForeground(WHITE);
+        JPanel center = new JPanel();
+        center.setBackground(BACKGROUND);
+        center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
 
-        JLabel processorName = new JLabel(
-                processorInfo.getProcessorName()
-        );
-        processorName.setFont(new Font("SansSerif", Font.BOLD, 17));
-        processorName.setForeground(ACCENT);
+        JPanel summaryCard = new JPanel();
+        summaryCard.setBackground(CARD);
+        summaryCard.setLayout(new BoxLayout(summaryCard, BoxLayout.Y_AXIS));
+        summaryCard.setBorder(new EmptyBorder(25, 25, 25, 25));
 
-        JLabel manufacturer = new JLabel(
-                "Manufacturer: " + processorInfo.getManufacturer()
-        );
-        manufacturer.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        manufacturer.setForeground(GRAY);
+        JLabel usageTitle = new JLabel("Memory Utilization");
+        usageTitle.setForeground(MUTED);
+        usageTitle.setFont(new Font("Segoe UI", Font.PLAIN, 15));
 
-        overview.add(overviewTitle);
-        overview.add(Box.createVerticalStrut(20));
-        overview.add(processorName);
-        overview.add(Box.createVerticalStrut(10));
-        overview.add(manufacturer);
+        memoryPercentage = new JLabel("0%");
+        memoryPercentage.setForeground(TEXT);
+        memoryPercentage.setFont(new Font("Segoe UI", Font.BOLD, 42));
 
-        page.add(overview);
-        page.add(Box.createVerticalStrut(20));
+        memoryProgress = new JProgressBar(0, 100);
+        memoryProgress.setValue(0);
+        memoryProgress.setForeground(ACCENT);
+        memoryProgress.setBackground(new Color(55, 55, 60));
+        memoryProgress.setBorderPainted(false);
+        memoryProgress.setStringPainted(false);
+        memoryProgress.setPreferredSize(new Dimension(400, 12));
+        memoryProgress.setMaximumSize(new Dimension(Integer.MAX_VALUE, 12));
 
-        JPanel specifications = createPanel();
-        specifications.setLayout(new BorderLayout());
-        specifications.setBorder(new EmptyBorder(22, 22, 22, 22));
+        summaryCard.add(usageTitle);
+        summaryCard.add(Box.createVerticalStrut(15));
+        summaryCard.add(memoryPercentage);
+        summaryCard.add(Box.createVerticalStrut(20));
+        summaryCard.add(memoryProgress);
 
-        JLabel specificationsTitle = new JLabel(
-                "Processor Specifications"
-        );
-        specificationsTitle.setFont(new Font("SansSerif", Font.BOLD, 18));
-        specificationsTitle.setForeground(WHITE);
+        center.add(summaryCard);
+        center.add(Box.createVerticalStrut(20));
 
-        JPanel details = new JPanel(new GridLayout(0, 2, 20, 22));
-        details.setBackground(PANEL);
-        details.setBorder(new EmptyBorder(22, 0, 0, 0));
+        JPanel informationCard = new JPanel(new GridLayout(3, 2, 15, 20));
+        informationCard.setBackground(CARD);
+        informationCard.setBorder(new EmptyBorder(25, 25, 25, 25));
 
-        details.add(createDetailItem(
-                "PHYSICAL CORES",
-                new JLabel(String.valueOf(processorInfo.getPhysicalCores()))
-        ));
+        memoryTotal = createDetailLabel();
+        memoryUsed = createDetailLabel();
+        memoryAvailable = createDetailLabel();
 
-        details.add(createDetailItem(
-                "LOGICAL PROCESSORS",
-                new JLabel(String.valueOf(processorInfo.getLogicalCores()))
-        ));
+        addDetailRow(informationCard, "Total Installed RAM", memoryTotal);
+        addDetailRow(informationCard, "Used RAM", memoryUsed);
+        addDetailRow(informationCard, "Available RAM", memoryAvailable);
 
-        details.add(createDetailItem(
-                "ARCHITECTURE",
-                new JLabel(processorInfo.getArchitecture())
-        ));
+        center.add(informationCard);
 
-        details.add(createDetailItem(
-                "MAXIMUM FREQUENCY",
-                new JLabel(processorInfo.getMaximumFrequency())
-        ));
-
-        details.add(createDetailItem(
-                "CURRENT AVERAGE FREQUENCY",
-                new JLabel(processorInfo.getCurrentFrequency())
-        ));
-
-        details.add(createDetailItem(
-                "PROCESSOR FAMILY",
-                new JLabel(processorInfo.getFamily())
-        ));
-
-        details.add(createDetailItem(
-                "PROCESSOR MODEL",
-                new JLabel(processorInfo.getModel())
-        ));
-
-        details.add(createDetailItem(
-                "STEPPING",
-                new JLabel(processorInfo.getStepping())
-        ));
-
-        details.add(createDetailItem(
-                "CPU IDENTIFIER",
-                new JLabel(processorInfo.getIdentifier())
-        ));
-
-        specifications.add(specificationsTitle, BorderLayout.NORTH);
-        specifications.add(details, BorderLayout.CENTER);
-
-        page.add(specifications);
-
-        contentPanel.add(page, BorderLayout.CENTER);
-
-        contentPanel.revalidate();
-        contentPanel.repaint();
-    }
-
-    // ==============================
-    // GENERAL PANELS
-    // ==============================
-
-    private JPanel createPanel() {
-
-        JPanel panel = new JPanel();
-
-        panel.setBackground(PANEL);
-        panel.setBorder(
-                BorderFactory.createLineBorder(BORDER)
-        );
+        panel.add(center, BorderLayout.CENTER);
 
         return panel;
     }
 
-    // ==============================
+    private void refreshMemoryPage() {
+        long total = memoryInfo.getTotalRAM();
+        long used = memoryInfo.getUsedRAM();
+        long available = memoryInfo.getAvailableRAM();
+
+        double usage = memoryInfo.getRAMUsage();
+
+        int percentage = (int) Math.round(usage);
+        percentage = Math.max(0, Math.min(100, percentage));
+
+        memoryTotal.setText(memoryInfo.formatGB(total));
+        memoryUsed.setText(memoryInfo.formatGB(used));
+        memoryAvailable.setText(memoryInfo.formatGB(available));
+
+        memoryPercentage.setText(String.format("%.1f%%", usage));
+        memoryProgress.setValue(percentage);
+    }
+
+    // PROCESSOR PAGE
+
+    private JPanel showProcessorPage() {
+        JPanel panel = createPanel();
+        panel.setLayout(new BorderLayout(20, 20));
+
+        JLabel title = new JLabel("Processor Information");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        title.setForeground(TEXT);
+
+        JLabel subtitle = new JLabel(
+                "Detailed information about your system processor.");
+
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setForeground(MUTED);
+
+        JPanel header = new JPanel();
+        header.setBackground(BACKGROUND);
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+        header.add(title);
+        header.add(Box.createVerticalStrut(5));
+        header.add(subtitle);
+
+        processorDetails = new JTextArea();
+        processorDetails.setEditable(false);
+        processorDetails.setLineWrap(true);
+        processorDetails.setWrapStyleWord(true);
+        processorDetails.setBackground(CARD);
+        processorDetails.setForeground(TEXT);
+        processorDetails.setFont(new Font("Consolas", Font.PLAIN, 14));
+        processorDetails.setBorder(new EmptyBorder(20, 20, 20, 20));
+
+        JScrollPane scrollPane = new JScrollPane(processorDetails);
+        scrollPane.setBorder(null);
+        scrollPane.getViewport().setBackground(CARD);
+
+        panel.add(header, BorderLayout.NORTH);
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    private void refreshProcessorPage() {
+        String details = getText(
+                processorInfo, "getProcessorSummary");
+
+        processorDetails.setText(details);
+        processorDetails.setCaretPosition(0);
+    }
+
     // PLACEHOLDER PAGES
-    // ==============================
 
-    private void showPlaceholder(
-            String title,
-            String description
-    ) {
+    private JPanel showPlaceholder(String titleText, String message) {
+        JPanel panel = createPanel();
+        panel.setLayout(new BorderLayout());
 
-        contentPanel.removeAll();
+        JLabel title = new JLabel(titleText);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        title.setForeground(TEXT);
 
+        JLabel description = new JLabel(message);
+        description.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        description.setForeground(MUTED);
+
+        JPanel content = new JPanel();
+        content.setBackground(BACKGROUND);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        content.add(title);
+        content.add(Box.createVerticalStrut(10));
+        content.add(description);
+
+        panel.add(content, BorderLayout.NORTH);
+
+        return panel;
+    }
+
+    // GENERAL HELPERS
+
+    private JPanel createPanel() {
         JPanel panel = new JPanel();
         panel.setBackground(BACKGROUND);
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(new EmptyBorder(30, 30, 30, 30));
+        return panel;
+    }
 
-        JLabel heading = new JLabel(title);
-        heading.setFont(new Font("SansSerif", Font.BOLD, 27));
-        heading.setForeground(WHITE);
+    private double getNumber(Object object, String methodName) {
+        try {
+            Method method = object.getClass().getMethod(methodName);
+            Object result = method.invoke(object);
 
-        JLabel subtitle = new JLabel(description);
-        subtitle.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        subtitle.setForeground(GRAY);
+            if (result instanceof Number) {
+                return ((Number) result).doubleValue();
+            }
+        } catch (Exception ignored) {
+        }
 
-        panel.add(heading);
-        panel.add(Box.createVerticalStrut(10));
-        panel.add(subtitle);
+        return 0;
+    }
 
-        contentPanel.add(panel, BorderLayout.CENTER);
+    private String getText(Object object, String... methodNames) {
+        for (String methodName : methodNames) {
+            try {
+                Method method = object.getClass().getMethod(methodName);
+                Object result = method.invoke(object);
 
-        contentPanel.revalidate();
-        contentPanel.repaint();
+                if (result != null) {
+                    return result.toString();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        return "Not available";
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(Main::new);
     }
 }
